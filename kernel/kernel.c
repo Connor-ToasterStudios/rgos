@@ -184,7 +184,7 @@ void TerminalProcessCommand(Window* win, const char* cmd) {
         TerminalAddLine(win, "  help   - Show this help");
         TerminalAddLine(win, "  clear  - Clear screen");
         TerminalAddLine(win, "  echo   - Echo text");
-        TerminalAddLine(win, "  about  - About MyOS");
+        TerminalAddLine(win, "  about  - About MyOs");
         TerminalAddLine(win, "  date   - Show date");
         TerminalAddLine(win, "  ls     - List files");
         TerminalAddLine(win, "  whoami - Show user");
@@ -196,8 +196,8 @@ void TerminalProcessCommand(Window* win, const char* cmd) {
         TerminalAddLine(win, cmd + 5);
     }
     else if(strcmp(cmd, "about") == 0) {
-        TerminalAddLine(win, "MyOS v1.0 - Custom UEFI OS");
-        TerminalAddLine(win, "AP Computer Science Project");
+        TerminalAddLine(win, "MyOs v1.0 - Custom UEFI OS");
+        TerminalAddLine(win, "My AP Computer Science Project");
     }
     else if(strcmp(cmd, "date") == 0) {
         TerminalAddLine(win, "Mon Oct 1 12:34:56 2024");
@@ -331,7 +331,7 @@ void DrawTaskbar() {
     DrawRect(8, taskbarY + 8, 120, 32, COLOR_TITLEBAR_BLUE);
     DrawText(20, taskbarY + 16, "Start", COLOR_WHITE);
     DrawRect(fb->width - 150, taskbarY + 8, 140, 32, 0x2D2D2D);
-    DrawText(fb->width - 135, taskbarY + 16, "MyOS v1.0", COLOR_WHITE);
+    DrawText(fb->width - 135, taskbarY + 16, "MyOs v1.0", COLOR_WHITE);
 }
 
 void RedrawEverything() {
@@ -384,7 +384,7 @@ void CreateWindow(int x, int y, int width, int height, const char* title, uint32
         win->termData.inputPos = 0;
         win->termData.inputBuffer[0] = '\0';
         win->termData.historyCount = 0;
-        TerminalAddLine(win, "MyOS Terminal v1.0");
+        TerminalAddLine(win, "MyOs Terminal v1.0");
         TerminalAddLine(win, "Type 'help' for commands");
         TerminalAddLine(win, "");
     }
@@ -611,7 +611,7 @@ void KernelMain(Framebuffer* framebuffer) {
     
     CreateWindow(100, 100, 700, 500, "Terminal", COLOR_TITLEBAR_BLUE, 1);
     CreateWindow(150, 150, 500, 350, "File Manager", COLOR_TITLEBAR_GREEN, 0);
-    CreateWindow(200, 200, 450, 300, "About MyOS", COLOR_TITLEBAR_RED, 0);
+    CreateWindow(200, 200, 450, 300, "About MyOs", COLOR_TITLEBAR_RED, 0);
     
     // Focus first terminal
     windows[0].isFocused = 1;

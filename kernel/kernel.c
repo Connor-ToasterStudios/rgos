@@ -1037,6 +1037,10 @@ void HandleMouseClick(int x, int y) {
             }
             win->isFocused = 1;
             focusedWindow = i;
+
+            Window tmpWindow = windows[windowCount - 1];
+            windows[windowCount - 1] = *win;
+            *win = tmpWindow;
             
             int closeX = win->x + win->width - 26;
             int closeY = win->y + 6;

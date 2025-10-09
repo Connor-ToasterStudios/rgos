@@ -351,7 +351,7 @@ void InitFAT12() {
     bpbPtr->jump[1] = 0x3C;
     bpbPtr->jump[2] = 0x90;
     
-    for(int i = 0; i < 8; i++) bpbPtr->oem[i] = "RGOS 1.3 "[i];
+    for(int i = 0; i < 8; i++) bpbPtr->oem[i] = "MYOS1.0 "[i];
     
     bpbPtr->bytesPerSector = 512;
     bpbPtr->sectorsPerCluster = 1;
@@ -379,7 +379,7 @@ void InitFAT12() {
     
     FAT12_DirEntry* entries = (FAT12_DirEntry*)rootDir;
     
-    for(int i = 0; i < 11; i++) entries[0].name[i] = "RGOS  DISK "[i];
+    for(int i = 0; i < 11; i++) entries[0].name[i] = "MYOS  DISK "[i];
     entries[0].attributes = ATTR_VOLUME_ID;
     
     for(int i = 0; i < 11; i++) entries[1].name[i] = "DOCUMENTS  "[i];
@@ -666,7 +666,7 @@ void TerminalProcessCommand(Window* win, const char* cmd) {
         TerminalAddLine(win, "  help   - Show this help");
         TerminalAddLine(win, "  clear  - Clear screen");
         TerminalAddLine(win, "  echo   - Echo text");
-        TerminalAddLine(win, "  about  - About RGOS");
+        TerminalAddLine(win, "  about  - About MyOS");
         TerminalAddLine(win, "  date   - Show date");
         TerminalAddLine(win, "  ls     - List files");
         TerminalAddLine(win, "  whoami - Show user");
@@ -678,7 +678,7 @@ void TerminalProcessCommand(Window* win, const char* cmd) {
         TerminalAddLine(win, cmd + 5);
     }
     else if(strcmp(cmd, "about") == 0) {
-        TerminalAddLine(win, "RGOS v1.3 - Custom UEFI OS");
+        TerminalAddLine(win, "MyOS v1.0 - Custom UEFI OS");
         TerminalAddLine(win, "With FAT12 File Browser");
     }
     else if(strcmp(cmd, "date") == 0) {
@@ -716,7 +716,7 @@ void DrawTerminalContent(Window* win) {
         lineY += 12;
     }
     
-    DrawText(contentX, lineY, "user@rgos:~$ ", COLOR_TERMINAL_TEXT);
+    DrawText(contentX, lineY, "user@myos:~$ ", COLOR_TERMINAL_TEXT);
     DrawText(contentX + 13 * 8, lineY, term->inputBuffer, COLOR_TERMINAL_TEXT);
     
     int cursorX = contentX + 13 * 8 + term->inputPos * 8;
@@ -742,20 +742,34 @@ void DrawTextEditorContent(Window* win) {
     if(editor->editingFilename) {
         // Editing filename mode
         DrawText(contentX, contentY, "Filename: ", COLOR_BLACK);
-        DrawText(contentX + 10 * 8, contentY, editor->filename, COLOR_BLACK);
         
-        // Draw cursor under filename
-        int cursorX = contentX + 10 * 8 + editor->filenamePos * 8;
-        DrawRect(cursorX, contentY + 10, 8, 2, COLOR_BLACK);
+        // Safely draw filename
+        int fnLen = strlen(editor->filename);
+        if(fnLen > 0 && fnLen < 64) {
+            DrawText(contentX + 10 * 8, contentY, editor->filename, COLOR_BLACK);
+            
+            // Draw cursor under filename - bound check
+            if(editor->filenamePos >= 0 && editor->filenamePos <= fnLen) {
+                int cursorX = contentX + 10 * 8 + editor->filenamePos * 8;
+                if(cursorX < contentX + contentWidth - 8) {
+                    DrawRect(cursorX, contentY + 10, 8, 2, COLOR_BLACK);
+                }
+            }
+        }
         
         DrawText(contentX + 400, contentY, "Enter: Done", 0x0078D7);
     } else {
         // Normal mode - show filename
-        char titleBar[80];
-        strcpy(titleBar, "File: ");
-        strcat(titleBar, editor->filename);
-        if(editor->modified) strcat(titleBar, " *");
-        DrawText(contentX, contentY, titleBar, COLOR_BLACK);
+        DrawText(contentX, contentY, "File: ", COLOR_BLACK);
+        
+        int fnLen = strlen(editor->filename);
+        if(fnLen > 0 && fnLen < 64) {
+            DrawText(contentX + 6 * 8, contentY, editor->filename, COLOR_BLACK);
+        }
+        
+        if(editor->modified) {
+            DrawText(contentX + (6 + fnLen) * 8 + 4, contentY, "*", COLOR_BLACK);
+        }
         
         DrawText(contentX + 400, contentY, "F3: Rename", 0x0078D7);
     }
@@ -893,7 +907,7 @@ void DrawTaskbar() {
     DrawRect(8, taskbarY + 8, 120, 32, COLOR_TITLEBAR_BLUE);
     DrawText(20, taskbarY + 16, "Start", COLOR_WHITE);
     DrawRect(fb->width - 150, taskbarY + 8, 140, 32, 0x2D2D2D);
-    DrawText(fb->width - 135, taskbarY + 16, "RGOS v1.3", COLOR_WHITE);
+    DrawText(fb->width - 135, taskbarY + 16, "MyOS v1.0", COLOR_WHITE);
 }
 
 void RedrawEverything() {
@@ -946,7 +960,7 @@ void CreateWindow(int x, int y, int width, int height, const char* title, uint32
         win->termData.inputPos = 0;
         win->termData.inputBuffer[0] = '\0';
         win->termData.historyCount = 0;
-        TerminalAddLine(win, "RGOS Terminal v1.3");
+        TerminalAddLine(win, "MyOS Terminal v1.0");
         TerminalAddLine(win, "Type 'help' for commands");
         TerminalAddLine(win, "");
     } else if(windowType == 2) {
@@ -1037,10 +1051,6 @@ void HandleMouseClick(int x, int y) {
             }
             win->isFocused = 1;
             focusedWindow = i;
-
-            Window tmpWindow = windows[windowCount - 1];
-            windows[windowCount - 1] = *win;
-            *win = tmpWindow;
             
             int closeX = win->x + win->width - 26;
             int closeY = win->y + 6;
@@ -1129,7 +1139,7 @@ void HandleKeyPress(unsigned char key) {
             term->inputBuffer[term->inputPos] = '\0';
             
             char cmdLine[MAX_LINE_LENGTH];
-            strcpy(cmdLine, "user@rgos:~$ ");
+            strcpy(cmdLine, "user@myos:~$ ");
             strcat(cmdLine, term->inputBuffer);
             TerminalAddLine(win, cmdLine);
             
@@ -1195,27 +1205,23 @@ void HandleKeyPress(unsigned char key) {
             if(key == '\n') {
                 // Finish editing filename
                 editor->editingFilename = 0;
+                editor->filename[63] = '\0';  // Ensure null termination
                 DrawWindow(win);
             }
             else if(key == '\b') {
+                // Simple backspace - just remove last character
                 if(editor->filenamePos > 0) {
-                    // Remove character from filename
-                    for(int i = editor->filenamePos - 1; i < 63; i++) {
-                        editor->filename[i] = editor->filename[i + 1];
-                    }
                     editor->filenamePos--;
+                    editor->filename[editor->filenamePos] = '\0';
                     DrawWindow(win);
                 }
             }
             else if(key >= 32 && key <= 126) {
-                if(editor->filenamePos < 63) {
-                    // Insert character into filename
-                    for(int i = 63; i > editor->filenamePos; i--) {
-                        editor->filename[i] = editor->filename[i - 1];
-                    }
+                // Simple append - just add to end
+                if(editor->filenamePos < 60) {
                     editor->filename[editor->filenamePos] = key;
                     editor->filenamePos++;
-                    editor->filename[63] = '\0';
+                    editor->filename[editor->filenamePos] = '\0';
                     DrawWindow(win);
                 }
             }
@@ -1386,7 +1392,7 @@ void KernelMain(Framebuffer* framebuffer) {
     
     CreateWindow(100, 100, 700, 500, "File Browser", COLOR_TITLEBAR_GREEN, 2);
     CreateWindow(150, 150, 700, 500, "Terminal", COLOR_TITLEBAR_BLUE, 1);
-    CreateWindow(200, 200, 450, 300, "Test", COLOR_TITLEBAR_RED, 0);
+    CreateWindow(200, 200, 450, 300, "About MyOS", COLOR_TITLEBAR_RED, 0);
     
     windows[0].isFocused = 1;
     focusedWindow = 0;

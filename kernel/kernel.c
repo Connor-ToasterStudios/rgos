@@ -1447,6 +1447,10 @@ void HandleMouseClick(int x, int y) {
             }
             win->isFocused = 1;
             focusedWindow = i;
+         
+            Window tmpWindow = windows[windowCount - 1];
+            windows[windowCount - 1] = *win;
+            *win = tmpWindow;
             
 if(PointInRect(x, y, 330, 30, 64, 64)) {
     CreateTetrisWindow();
@@ -1745,7 +1749,7 @@ void PollKeyboard() {
     
     unsigned char scancode = inb(0x60);
     
-    // Check for key release (high bit set)
+    // Check for key release
     if(scancode & 0x80) {
         scancode &= 0x7F;
         // Handle ctrl/shift release
@@ -1813,14 +1817,18 @@ void KernelMain(Framebuffer* framebuffer) {
     
     while(1) {
          
-        for(int i = 0; i < windowCount; i++) {
+        static int frameCounter = 0;
+        frameCounter++;
+
+if(frameCounter >= 1000) {
+    frameCounter = 0;
+    for(int i = 0; i < windowCount; i++) {
         if(windows[i].visible && windows[i].windowType == 4) {
             TetrisUpdate(&windows[i].tetrisGame);
-            if(windows[i].tetrisGame.dropCounter == 0) {
-                DrawTetrisBoard(&windows[i], &windows[i].tetrisGame);
-            }
+            DrawTetrisBoard(&windows[i], &windows[i].tetrisGame);
         }
     }
+}
         PollMouse();
         PollKeyboard();
         for(volatile int i = 0; i < 5000; i++);

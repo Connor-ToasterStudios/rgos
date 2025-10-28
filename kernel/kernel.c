@@ -474,27 +474,37 @@ void TetrisLockPiece(TetrisGame* game) {
 
 int TetrisClearLines(TetrisGame* game) {
     int linesCleared = 0;
-    for(int row = BOARD_HEIGHT - 1; row >= 0; row--) {
+    
+    // Check each row from bottom to top
+    int row = BOARD_HEIGHT - 1;
+    while(row >= 0) {
         int full = 1;
         for(int col = 0; col < BOARD_WIDTH; col++) {
-            if(!game->board[row][col]) {
+            if(game->board[row][col] == 0) {
                 full = 0;
                 break;
             }
         }
+        
         if(full) {
             linesCleared++;
+            // Shift all rows above this one down
             for(int r = row; r > 0; r--) {
                 for(int col = 0; col < BOARD_WIDTH; col++) {
-                    game->board[r][col] = game->board[r-1][col];
+                    game->board[r][col] = game->board[r - 1][col];
                 }
             }
+            // Clear the top row
             for(int col = 0; col < BOARD_WIDTH; col++) {
                 game->board[0][col] = 0;
             }
-            row++;
+            // Don't decrement row - check this position again
+            // since a new row moved into it
+        } else {
+            row--;
         }
     }
+    
     return linesCleared;
 }
 
@@ -1817,14 +1827,25 @@ void KernelMain(Framebuffer* framebuffer) {
     
     while(1) {
          
-        static int frameCounter = 0;
-        frameCounter++;
+       static int frameCounter = 0;
+static int needsRedraw = 0;
+
+frameCounter++;
 
 if(frameCounter >= 1000) {
     frameCounter = 0;
     for(int i = 0; i < windowCount; i++) {
         if(windows[i].visible && windows[i].windowType == 4) {
             TetrisUpdate(&windows[i].tetrisGame);
+            needsRedraw = 1;
+        }
+    }
+}
+
+if(needsRedraw) {
+    needsRedraw = 0;
+    for(int i = 0; i < windowCount; i++) {
+        if(windows[i].visible && windows[i].windowType == 4) {
             DrawTetrisBoard(&windows[i], &windows[i].tetrisGame);
         }
     }

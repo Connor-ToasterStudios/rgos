@@ -74,6 +74,69 @@ typedef struct {
     int historyIndex;
 } TerminalData;
 
+#define BOARD_WIDTH 10
+#define BOARD_HEIGHT 20
+#define BLOCK_SIZE 20
+
+// Tetromino shapes
+static const int tetrominoes[7][4][4][4] = {
+    // I piece
+    {{{0,0,0,0},{1,1,1,1},{0,0,0,0},{0,0,0,0}},
+     {{0,0,1,0},{0,0,1,0},{0,0,1,0},{0,0,1,0}},
+     {{0,0,0,0},{0,0,0,0},{1,1,1,1},{0,0,0,0}},
+     {{0,1,0,0},{0,1,0,0},{0,1,0,0},{0,1,0,0}}},
+    // O piece
+    {{{0,1,1,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},
+     {{0,1,1,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},
+     {{0,1,1,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},
+     {{0,1,1,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}}},
+    // T piece
+    {{{0,1,0,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},
+     {{0,1,0,0},{0,1,1,0},{0,1,0,0},{0,0,0,0}},
+     {{0,0,0,0},{1,1,1,0},{0,1,0,0},{0,0,0,0}},
+     {{0,1,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}}},
+    // S piece
+    {{{0,1,1,0},{1,1,0,0},{0,0,0,0},{0,0,0,0}},
+     {{0,1,0,0},{0,1,1,0},{0,0,1,0},{0,0,0,0}},
+     {{0,0,0,0},{0,1,1,0},{1,1,0,0},{0,0,0,0}},
+     {{1,0,0,0},{1,1,0,0},{0,1,0,0},{0,0,0,0}}},
+    // Z piece
+    {{{1,1,0,0},{0,1,1,0},{0,0,0,0},{0,0,0,0}},
+     {{0,0,1,0},{0,1,1,0},{0,1,0,0},{0,0,0,0}},
+     {{0,0,0,0},{1,1,0,0},{0,1,1,0},{0,0,0,0}},
+     {{0,1,0,0},{1,1,0,0},{1,0,0,0},{0,0,0,0}}},
+    // J piece
+    {{{1,0,0,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},
+     {{0,1,1,0},{0,1,0,0},{0,1,0,0},{0,0,0,0}},
+     {{0,0,0,0},{1,1,1,0},{0,0,1,0},{0,0,0,0}},
+     {{0,1,0,0},{0,1,0,0},{1,1,0,0},{0,0,0,0}}},
+    // L piece
+    {{{0,0,1,0},{1,1,1,0},{0,0,0,0},{0,0,0,0}},
+     {{0,1,0,0},{0,1,0,0},{0,1,1,0},{0,0,0,0}},
+     {{0,0,0,0},{1,1,1,0},{1,0,0,0},{0,0,0,0}},
+     {{1,1,0,0},{0,1,0,0},{0,1,0,0},{0,0,0,0}}}
+};
+
+static const uint32_t tetrominoColors[7] = {
+    0x00FFFF, 0xFFFF00, 0x800080, 0x00FF00, 0xFF0000, 0x0000FF, 0xFFA500
+};
+
+typedef struct {
+    int board[BOARD_HEIGHT][BOARD_WIDTH];
+    int currentPiece;
+    int currentRotation;
+    int currentX;
+    int currentY;
+    int nextPiece;
+    int score;
+    int lines;
+    int level;
+    int gameOver;
+    int paused;
+    int dropCounter;
+    int dropSpeed;
+} TetrisGame;
+
 #define MAX_FILE_CONTENT 4096
 typedef struct {
     char content[MAX_FILE_CONTENT];
@@ -94,13 +157,12 @@ typedef struct {
     int dragging;
     int dragOffsetX, dragOffsetY;
     int lastDrawX, lastDrawY;
-    int windowType; // 0=normal, 1=terminal, 2=file browser, 3=text editor
+    int windowType;           
     int isFocused;
-    union {
-        TerminalData termData;
-        FileBrowserData browserData;
-        TextEditorData editorData;
-    };
+    TerminalData termData;
+    FileBrowserData browserData;   
+    TextEditorData editorData;     
+    TetrisGame tetrisGame;         
 } Window;
 
 static Framebuffer *fb;
@@ -191,6 +253,46 @@ void strcat(char* dest, const char* src) {
     while(*dest) dest++;
     while(*src) *dest++ = *src++;
     *dest = '\0';
+}
+
+void IntToStr(int num, char* str) {
+    if(num == 0) {
+        str[0] = '0';
+        str[1] = '\0';
+        return;
+    }
+    
+    int isNeg = 0;
+    if(num < 0) {
+        isNeg = 1;
+        num = -num;
+    }
+    
+    char temp[32];
+    int i = 0;
+    while(num > 0) {
+        temp[i++] = '0' + (num % 10);
+        num /= 10;
+    }
+    
+    int j = 0;
+    if(isNeg) str[j++] = '-';
+    
+    while(i > 0) {
+        str[j++] = temp[--i];
+    }
+    str[j] = '\0';
+}
+
+static unsigned int randSeed = 12345;
+
+void SetRandomSeed(unsigned int seed) {
+    randSeed = seed;
+}
+
+int Random(int max) {
+    randSeed = (randSeed * 1103515245 + 12345) & 0x7fffffff;
+    return randSeed % max;
 }
 
 // Graphics functions
@@ -342,6 +444,276 @@ void DrawText(uint32_t x, uint32_t y, const char* text, uint32_t color) {
     }
 }
 
+int TetrisCheckCollision(TetrisGame* game, int piece, int rotation, int x, int y) {
+    for(int row = 0; row < 4; row++) {
+        for(int col = 0; col < 4; col++) {
+            if(tetrominoes[piece][rotation][row][col]) {
+                int boardX = x + col;
+                int boardY = y + row;
+                if(boardX < 0 || boardX >= BOARD_WIDTH || boardY >= BOARD_HEIGHT) return 1;
+                if(boardY >= 0 && game->board[boardY][boardX]) return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+void TetrisLockPiece(TetrisGame* game) {
+    for(int row = 0; row < 4; row++) {
+        for(int col = 0; col < 4; col++) {
+            if(tetrominoes[game->currentPiece][game->currentRotation][row][col]) {
+                int boardY = game->currentY + row;
+                int boardX = game->currentX + col;
+                if(boardY >= 0 && boardY < BOARD_HEIGHT && boardX >= 0 && boardX < BOARD_WIDTH) {
+                    game->board[boardY][boardX] = game->currentPiece + 1;
+                }
+            }
+        }
+    }
+}
+
+int TetrisClearLines(TetrisGame* game) {
+    int linesCleared = 0;
+    for(int row = BOARD_HEIGHT - 1; row >= 0; row--) {
+        int full = 1;
+        for(int col = 0; col < BOARD_WIDTH; col++) {
+            if(!game->board[row][col]) {
+                full = 0;
+                break;
+            }
+        }
+        if(full) {
+            linesCleared++;
+            for(int r = row; r > 0; r--) {
+                for(int col = 0; col < BOARD_WIDTH; col++) {
+                    game->board[r][col] = game->board[r-1][col];
+                }
+            }
+            for(int col = 0; col < BOARD_WIDTH; col++) {
+                game->board[0][col] = 0;
+            }
+            row++;
+        }
+    }
+    return linesCleared;
+}
+
+void TetrisSpawnPiece(TetrisGame* game) {
+    game->currentPiece = game->nextPiece;
+    game->nextPiece = Random(7);
+    game->currentRotation = 0;
+    game->currentX = BOARD_WIDTH / 2 - 2;
+    game->currentY = -1;
+    if(TetrisCheckCollision(game, game->currentPiece, game->currentRotation, 
+                            game->currentX, game->currentY)) {
+        game->gameOver = 1;
+    }
+}
+
+void TetrisInit(TetrisGame* game) {
+    for(int row = 0; row < BOARD_HEIGHT; row++) {
+        for(int col = 0; col < BOARD_WIDTH; col++) {
+            game->board[row][col] = 0;
+        }
+    }
+    game->score = 0;
+    game->lines = 0;
+    game->level = 1;
+    game->gameOver = 0;
+    game->paused = 0;
+    game->dropCounter = 0;
+    game->dropSpeed = 30;
+    game->nextPiece = Random(7);
+    TetrisSpawnPiece(game);
+}
+
+void TetrisMovePiece(TetrisGame* game, int dx, int dy) {
+    if(!TetrisCheckCollision(game, game->currentPiece, game->currentRotation,
+                             game->currentX + dx, game->currentY + dy)) {
+        game->currentX += dx;
+        game->currentY += dy;
+    }
+}
+
+void TetrisRotatePiece(TetrisGame* game) {
+    int newRotation = (game->currentRotation + 1) % 4;
+    if(!TetrisCheckCollision(game, game->currentPiece, newRotation,
+                             game->currentX, game->currentY)) {
+        game->currentRotation = newRotation;
+    }
+}
+
+void TetrisDropPiece(TetrisGame* game) {
+    while(!TetrisCheckCollision(game, game->currentPiece, game->currentRotation,
+                                 game->currentX, game->currentY + 1)) {
+        game->currentY++;
+        game->score += 2;
+    }
+}
+
+void TetrisUpdate(TetrisGame* game) {
+    if(game->gameOver || game->paused) return;
+    game->dropCounter++;
+    if(game->dropCounter >= game->dropSpeed) {
+        game->dropCounter = 0;
+        if(!TetrisCheckCollision(game, game->currentPiece, game->currentRotation,
+                                 game->currentX, game->currentY + 1)) {
+            game->currentY++;
+        } else {
+            TetrisLockPiece(game);
+            int cleared = TetrisClearLines(game);
+            if(cleared > 0) {
+                game->lines += cleared;
+                game->score += cleared * cleared * 100 * game->level;
+                game->level = game->lines / 10 + 1;
+                game->dropSpeed = 30 - (game->level * 2);
+                if(game->dropSpeed < 5) game->dropSpeed = 5;
+            }
+            TetrisSpawnPiece(game);
+        }
+    }
+}
+
+void DrawTetrisBlock(int x, int y, uint32_t color) {
+    DrawRect(x, y, BLOCK_SIZE - 1, BLOCK_SIZE - 1, color);
+}
+
+void DrawTetrisBoard(Window* win, TetrisGame* game) {
+    if(!win->visible) return;
+    int boardX = win->x + 20;
+    int boardY = win->y + 50;
+    
+    DrawRect(win->x + 2, win->y + 30, win->width - 4, win->height - 32, COLOR_BLACK);
+    DrawRect(boardX - 2, boardY - 2, BOARD_WIDTH * BLOCK_SIZE + 4, 
+             BOARD_HEIGHT * BLOCK_SIZE + 4, COLOR_WHITE);
+    DrawRect(boardX, boardY, BOARD_WIDTH * BLOCK_SIZE, BOARD_HEIGHT * BLOCK_SIZE, COLOR_BLACK);
+    
+    for(int row = 0; row < BOARD_HEIGHT; row++) {
+        for(int col = 0; col < BOARD_WIDTH; col++) {
+            if(game->board[row][col]) {
+                DrawTetrisBlock(boardX + col * BLOCK_SIZE, boardY + row * BLOCK_SIZE,
+                              tetrominoColors[game->board[row][col] - 1]);
+            }
+        }
+    }
+    
+    if(!game->gameOver && !game->paused) {
+        for(int row = 0; row < 4; row++) {
+            for(int col = 0; col < 4; col++) {
+                if(tetrominoes[game->currentPiece][game->currentRotation][row][col]) {
+                    int drawY = game->currentY + row;
+                    if(drawY >= 0) {
+                        DrawTetrisBlock(boardX + (game->currentX + col) * BLOCK_SIZE,
+                                      boardY + drawY * BLOCK_SIZE,
+                                      tetrominoColors[game->currentPiece]);
+                    }
+                }
+            }
+        }
+    }
+    
+    int infoX = boardX + BOARD_WIDTH * BLOCK_SIZE + 30;
+    int infoY = boardY;
+    DrawText(infoX, infoY, "NEXT:", COLOR_WHITE);
+    infoY += 20;
+    
+    for(int row = 0; row < 4; row++) {
+        for(int col = 0; col < 4; col++) {
+            if(tetrominoes[game->nextPiece][0][row][col]) {
+                DrawTetrisBlock(infoX + col * BLOCK_SIZE, infoY + row * BLOCK_SIZE,
+                              tetrominoColors[game->nextPiece]);
+            }
+        }
+    }
+    
+    infoY += 100;
+    DrawText(infoX, infoY, "SCORE:", COLOR_WHITE);
+    infoY += 15;
+    char scoreStr[16];
+    IntToStr(game->score, scoreStr);
+    DrawText(infoX, infoY, scoreStr, COLOR_WHITE);
+    
+    infoY += 30;
+    DrawText(infoX, infoY, "LINES:", COLOR_WHITE);
+    infoY += 15;
+    char linesStr[16];
+    IntToStr(game->lines, linesStr);
+    DrawText(infoX, infoY, linesStr, COLOR_WHITE);
+    
+    infoY += 30;
+    DrawText(infoX, infoY, "LEVEL:", COLOR_WHITE);
+    infoY += 15;
+    char levelStr[16];
+    IntToStr(game->level, levelStr);
+    DrawText(infoX, infoY, levelStr, COLOR_WHITE);
+    
+    infoY += 50;
+    DrawText(infoX, infoY, "CONTROLS:", COLOR_WHITE);
+    infoY += 15;
+    DrawText(infoX, infoY, "A - Left", 0xCCCCCC);
+    infoY += 12;
+    DrawText(infoX, infoY, "D - Right", 0xCCCCCC);
+    infoY += 12;
+    DrawText(infoX, infoY, "S - Down", 0xCCCCCC);
+    infoY += 12;
+    DrawText(infoX, infoY, "W - Rotate", 0xCCCCCC);
+    infoY += 12;
+    DrawText(infoX, infoY, "Space-Drop", 0xCCCCCC);
+    infoY += 12;
+    DrawText(infoX, infoY, "P - Pause", 0xCCCCCC);
+    
+    if(game->gameOver) {
+        int msgX = boardX + (BOARD_WIDTH * BLOCK_SIZE - 80) / 2;
+        int msgY = boardY + (BOARD_HEIGHT * BLOCK_SIZE - 40) / 2;
+        DrawRect(msgX - 10, msgY - 10, 100, 60, 0xCC0000);
+        DrawText(msgX, msgY, "GAME OVER!", COLOR_WHITE);
+        DrawText(msgX, msgY + 20, "Press R", COLOR_WHITE);
+        DrawText(msgX, msgY + 32, "to restart", COLOR_WHITE);
+    }
+    
+    if(game->paused) {
+        int msgX = boardX + (BOARD_WIDTH * BLOCK_SIZE - 56) / 2;
+        int msgY = boardY + (BOARD_HEIGHT * BLOCK_SIZE - 20) / 2;
+        DrawRect(msgX - 10, msgY - 10, 76, 40, 0x0078D7);
+        DrawText(msgX, msgY, "PAUSED", COLOR_WHITE);
+        DrawText(msgX, msgY + 15, "Press P", COLOR_WHITE);
+    }
+}
+
+void HandleTetrisKeyPress(Window* win, TetrisGame* game, unsigned char key) {
+    if(!win->visible) return;
+    if(key == 'r' && game->gameOver) {
+        TetrisInit(game);
+        DrawTetrisBoard(win, game);
+        return;
+    }
+    if(game->gameOver) return;
+    if(key == 'p') {
+        game->paused = !game->paused;
+        DrawTetrisBoard(win, game);
+        return;
+    }
+    if(game->paused) return;
+    
+    if(key == 'a') {
+        TetrisMovePiece(game, -1, 0);
+        DrawTetrisBoard(win, game);
+    } else if(key == 'd') {
+        TetrisMovePiece(game, 1, 0);
+        DrawTetrisBoard(win, game);
+    } else if(key == 's') {
+        TetrisMovePiece(game, 0, 1);
+        game->score += 1;
+        DrawTetrisBoard(win, game);
+    } else if(key == 'w') {
+        TetrisRotatePiece(game);
+        DrawTetrisBoard(win, game);
+    } else if(key == ' ') {
+        TetrisDropPiece(game);
+        DrawTetrisBoard(win, game);
+    }
+}
+
 // FAT12 functions
 void InitFAT12() {
     diskImage = (uint8_t*)0x100000;
@@ -351,7 +723,7 @@ void InitFAT12() {
     bpbPtr->jump[1] = 0x3C;
     bpbPtr->jump[2] = 0x90;
     
-    for(int i = 0; i < 8; i++) bpbPtr->oem[i] = "MYOS1.0 "[i];
+    for(int i = 0; i < 8; i++) bpbPtr->oem[i] = "RGOS2.0.3"[i];
     
     bpbPtr->bytesPerSector = 512;
     bpbPtr->sectorsPerCluster = 1;
@@ -379,7 +751,7 @@ void InitFAT12() {
     
     FAT12_DirEntry* entries = (FAT12_DirEntry*)rootDir;
     
-    for(int i = 0; i < 11; i++) entries[0].name[i] = "MYOS  DISK "[i];
+    for(int i = 0; i < 11; i++) entries[0].name[i] = "RGOS  DISK "[i];
     entries[0].attributes = ATTR_VOLUME_ID;
     
     for(int i = 0; i < 11; i++) entries[1].name[i] = "DOCUMENTS  "[i];
@@ -666,7 +1038,7 @@ void TerminalProcessCommand(Window* win, const char* cmd) {
         TerminalAddLine(win, "  help   - Show this help");
         TerminalAddLine(win, "  clear  - Clear screen");
         TerminalAddLine(win, "  echo   - Echo text");
-        TerminalAddLine(win, "  about  - About MyOS");
+        TerminalAddLine(win, "  about  - About RGOS");
         TerminalAddLine(win, "  date   - Show date");
         TerminalAddLine(win, "  ls     - List files");
         TerminalAddLine(win, "  whoami - Show user");
@@ -678,7 +1050,7 @@ void TerminalProcessCommand(Window* win, const char* cmd) {
         TerminalAddLine(win, cmd + 5);
     }
     else if(strcmp(cmd, "about") == 0) {
-        TerminalAddLine(win, "MyOS v1.0 - Custom UEFI OS");
+        TerminalAddLine(win, "RGOS v2.0.3 - Custom UEFI OS");
         TerminalAddLine(win, "With FAT12 File Browser");
     }
     else if(strcmp(cmd, "date") == 0) {
@@ -716,7 +1088,7 @@ void DrawTerminalContent(Window* win) {
         lineY += 12;
     }
     
-    DrawText(contentX, lineY, "user@myos:~$ ", COLOR_TERMINAL_TEXT);
+    DrawText(contentX, lineY, "user@rgos:~$ ", COLOR_TERMINAL_TEXT);
     DrawText(contentX + 13 * 8, lineY, term->inputBuffer, COLOR_TERMINAL_TEXT);
     
     int cursorX = contentX + 13 * 8 + term->inputPos * 8;
@@ -874,11 +1246,13 @@ void DrawWindow(Window* win) {
         DrawFileBrowserContent(win);
     } else if(win->windowType == 3) {
         DrawTextEditorContent(win);
+        } else if(win->windowType == 4) {
+        DrawTetrisBoard(win, &win->tetrisGame);
     } else {
         DrawRect(win->x + 2, win->y + titleBarHeight, win->width - 4, 
                  win->height - titleBarHeight - 2, win->backgroundColor);
     }
-    
+
     DrawRect(win->x + win->width - 26, win->y + 6, 18, 18, 0xE81123);
     DrawText(win->x + win->width - 21, win->y + 11, "X", COLOR_WHITE);
     
@@ -892,8 +1266,9 @@ void ClearWindowArea(int x, int y, int w, int h) {
 
 void DrawDesktop() {
     DrawRect(0, 0, fb->width, fb->height, COLOR_DESKTOP_BG);
-    DrawRect(30, 30, 64, 64, COLOR_WHITE);
-    DrawText(35, 100, "Computer", COLOR_WHITE);
+
+    DrawRect(330, 30, 64, 64, COLOR_WHITE);
+    DrawText(335, 100, "Tetris", COLOR_WHITE);
     DrawRect(130, 30, 64, 64, COLOR_WHITE);
     DrawText(135, 100, "Files", COLOR_WHITE);
     DrawRect(230, 30, 64, 64, COLOR_WHITE);
@@ -901,13 +1276,14 @@ void DrawDesktop() {
 }
 
 void DrawTaskbar() {
+    
     uint32_t taskbarHeight = 48;
     uint32_t taskbarY = fb->height - taskbarHeight;
     DrawRect(0, taskbarY, fb->width, taskbarHeight, COLOR_TASKBAR);
     DrawRect(8, taskbarY + 8, 120, 32, COLOR_TITLEBAR_BLUE);
     DrawText(20, taskbarY + 16, "Start", COLOR_WHITE);
     DrawRect(fb->width - 150, taskbarY + 8, 140, 32, 0x2D2D2D);
-    DrawText(fb->width - 135, taskbarY + 16, "MyOS v1.0", COLOR_WHITE);
+    DrawText(fb->width - 135, taskbarY + 16, "RGOS v0.2.3", COLOR_WHITE);
 }
 
 void RedrawEverything() {
@@ -960,7 +1336,7 @@ void CreateWindow(int x, int y, int width, int height, const char* title, uint32
         win->termData.inputPos = 0;
         win->termData.inputBuffer[0] = '\0';
         win->termData.historyCount = 0;
-        TerminalAddLine(win, "MyOS Terminal v1.0");
+        TerminalAddLine(win, "RGOS Terminal v1.3");
         TerminalAddLine(win, "Type 'help' for commands");
         TerminalAddLine(win, "");
     } else if(windowType == 2) {
@@ -977,6 +1353,26 @@ void CreateWindow(int x, int y, int width, int height, const char* title, uint32
     }
     
     strcpy(win->title, title);
+    windowCount++;
+}
+
+void CreateTetrisWindow() {
+    if(windowCount >= 16) return;
+    Window* win = &windows[windowCount];
+    win->x = 150;
+    win->y = 50;
+    win->width = 480;
+    win->height = 480;
+    strcpy(win->title, "Tetris");
+    win->titleBarColor = COLOR_TITLEBAR_BLUE;
+    win->backgroundColor = COLOR_WINDOW_BG;
+    win->visible = 1;
+    win->dragging = 0;
+    win->lastDrawX = win->x;
+    win->lastDrawY = win->y;
+    win->windowType = 4;  // Tetris window type
+    win->isFocused = 0;
+    TetrisInit(&win->tetrisGame);
     windowCount++;
 }
 
@@ -1052,6 +1448,12 @@ void HandleMouseClick(int x, int y) {
             win->isFocused = 1;
             focusedWindow = i;
             
+if(PointInRect(x, y, 330, 30, 64, 64)) {
+    CreateTetrisWindow();
+    RedrawEverything();
+    return;
+}
+    
             int closeX = win->x + win->width - 26;
             int closeY = win->y + 6;
             if(PointInRect(x, y, closeX, closeY, 18, 18)) {
@@ -1132,6 +1534,11 @@ void HandleKeyPress(unsigned char key) {
     Window* win = &windows[focusedWindow];
     if(!win->visible) return;
     
+   if(win->windowType == 4) {
+        HandleTetrisKeyPress(win, &win->tetrisGame, key);
+        return;
+    }
+
     if(win->windowType == 1) {
         TerminalData* term = &win->termData;
         
@@ -1139,7 +1546,7 @@ void HandleKeyPress(unsigned char key) {
             term->inputBuffer[term->inputPos] = '\0';
             
             char cmdLine[MAX_LINE_LENGTH];
-            strcpy(cmdLine, "user@myos:~$ ");
+            strcpy(cmdLine, "user@rgos:~$ ");
             strcat(cmdLine, term->inputBuffer);
             TerminalAddLine(win, cmdLine);
             
@@ -1226,8 +1633,7 @@ void HandleKeyPress(unsigned char key) {
                 }
             }
         } else {
-            // Normal text editing mode
-            // F2 key for save
+            // F2 key to save
             if(key == 1) {
                 CreateNewFile(editor->filename, editor->content, editor->contentLength);
                 editor->modified = 0;
@@ -1240,13 +1646,13 @@ void HandleKeyPress(unsigned char key) {
                 
                 DrawWindow(win);
             }
-            // F3 key for rename
+            // F3 key to rename
             else if(key == 2) {
                 editor->editingFilename = 1;
                 editor->filenamePos = strlen(editor->filename);
                 DrawWindow(win);
             }
-            else if(key == 27) {  // Esc
+            else if(key == 27) {  // Esc to exit
                 win->visible = 0;
                 RedrawEverything();
             }
@@ -1392,8 +1798,8 @@ void KernelMain(Framebuffer* framebuffer) {
     
     CreateWindow(100, 100, 700, 500, "File Browser", COLOR_TITLEBAR_GREEN, 2);
     CreateWindow(150, 150, 700, 500, "Terminal", COLOR_TITLEBAR_BLUE, 1);
-    CreateWindow(200, 200, 450, 300, "About MyOS", COLOR_TITLEBAR_RED, 0);
-    
+    CreateWindow(200, 200, 450, 300, "About RGOS", COLOR_TITLEBAR_RED, 0);
+    CreateTetrisWindow(200, 200, 400, 350, "Tetris v1.0.3", COLOR_TITLEBAR_BLUE);
     windows[0].isFocused = 1;
     focusedWindow = 0;
     
@@ -1406,6 +1812,15 @@ void KernelMain(Framebuffer* framebuffer) {
     DrawCursor(mouseX, mouseY, 0);
     
     while(1) {
+         
+        for(int i = 0; i < windowCount; i++) {
+        if(windows[i].visible && windows[i].windowType == 4) {
+            TetrisUpdate(&windows[i].tetrisGame);
+            if(windows[i].tetrisGame.dropCounter == 0) {
+                DrawTetrisBoard(&windows[i], &windows[i].tetrisGame);
+            }
+        }
+    }
         PollMouse();
         PollKeyboard();
         for(volatile int i = 0; i < 5000; i++);

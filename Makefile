@@ -40,15 +40,15 @@ $(BUILD_DIR)/$(TARGET): $(BUILD_DIR)/bootx64.so
 	cp $@ $(BOOT_DIR)/$(TARGET)
 
 disk: $(BUILD_DIR)/$(TARGET)
-	dd if=/dev/zero of=$(BUILD_DIR)/myos.img bs=1M count=128
-	mkfs.fat -F 32 $(BUILD_DIR)/myos.img
-	mmd -i $(BUILD_DIR)/myos.img ::/EFI
-	mmd -i $(BUILD_DIR)/myos.img ::/EFI/BOOT
-	mcopy -i $(BUILD_DIR)/myos.img $(BOOT_DIR)/$(TARGET) ::/EFI/BOOT/
+	dd if=/dev/zero of=$(BUILD_DIR)/rgos.img bs=1M count=128
+	mkfs.fat -F 32 $(BUILD_DIR)/rgos.img
+	mmd -i $(BUILD_DIR)/rgos.img ::/EFI
+	mmd -i $(BUILD_DIR)/rgos.img ::/EFI/BOOT
+	mcopy -i $(BUILD_DIR)/rgos.img $(BOOT_DIR)/$(TARGET) ::/EFI/BOOT/
 
 run: disk
 	qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd \
-	                   -drive file=$(BUILD_DIR)/myos.img,format=raw \
+	                   -drive file=$(BUILD_DIR)/rgos.img,format=raw \
 	                   -m 512M
 clean:
 	rm -rf $(BUILD_DIR)

@@ -1,5 +1,6 @@
 #include "../include/types.h"
 #include "../apps/tetris.c"
+#include "../apps/paint.c"
 
 #define MAX_TERMINAL_LINES 30
 #define MAX_LINE_LENGTH 80
@@ -100,7 +101,8 @@ typedef struct {
     TerminalData termData;
     FileBrowserData browserData;   
     TextEditorData editorData;     
-    TetrisGame tetrisGame;         
+    TetrisGame tetrisGame; 
+    PaintData paintData;
 } Window;
 
 static Framebuffer *fb;
@@ -908,12 +910,16 @@ void DrawWindow(Window* win) {
     DrawRect(win->x + 2, win->y + 2, win->width - 4, titleBarHeight - 2, titleColor);
     DrawText(win->x + 10, win->y + 10, win->title, COLOR_WHITE);
     
-    if(win->windowType == 1) {
+        if(win->windowType == 1) {
         DrawTerminalContent(win);
     } else if(win->windowType == 2) {
         DrawFileBrowserContent(win);
     } else if(win->windowType == 3) {
         DrawTextEditorContent(win);
+    } else if(win->windowType == 4) {
+        DrawTetrisBoard(win, &win->tetrisGame);
+    } else if(win->windowType == 5) {
+        DrawPaintApp(win, &win->paintData);
     } else {
         DrawRect(win->x + 2, win->y + titleBarHeight, win->width - 4, 
                  win->height - titleBarHeight - 2, win->backgroundColor);
@@ -939,6 +945,8 @@ void DrawDesktop() {
     DrawText(135, 100, "Files", COLOR_WHITE);
     DrawRect(230, 30, 64, 64, COLOR_WHITE);
     DrawText(230, 100, "Terminal", COLOR_WHITE);
+    DrawRect(430, 30, 64, 64, COLOR_WHITE);
+    DrawText(440, 100, "Paint", COLOR_WHITE);
 }
 
 void DrawTaskbar() {
@@ -1042,6 +1050,26 @@ void CreateTetrisWindow() {
     windowCount++;
 }
 
+void CreatePaintWindow() {
+    if(windowCount >= 16) return;
+    Window* win = &windows[windowCount];
+    win->x = 100;
+    win->y = 80;
+    win->width = 430;  // Canvas + padding
+    win->height = 500; // Canvas + toolbar + palette
+    strcpy(win->title, "Paint");
+    win->titleBarColor = COLOR_TITLEBAR_GREEN;
+    win->backgroundColor = 0xCCCCCC;
+    win->visible = 1;
+    win->dragging = 0;
+    win->lastDrawX = win->x;
+    win->lastDrawY = win->y;
+    win->windowType = 5;  // Paint window type
+    win->isFocused = 0;
+    PaintInit(&win->paintData);
+    windowCount++;
+}
+
 int PointInRect(int px, int py, int x, int y, int w, int h) {
     return px >= x && px < x + w && py >= y && py < y + h;
 }
@@ -1123,6 +1151,12 @@ if(PointInRect(x, y, 330, 30, 64, 64)) {
     RedrawEverything();
     return;
 }
+
+if(PointInRect(x, y, 430, 30, 64, 64)) {
+    CreatePaintWindow();
+    RedrawEverything();
+    return;
+}
     
             int closeX = win->x + win->width - 26;
             int closeY = win->y + 6;
@@ -1140,6 +1174,10 @@ if(PointInRect(x, y, 330, 30, 64, 64)) {
             } else if(win->windowType == 2) {
                 HandleFileBrowserClick(win, x, y);
             }
+
+            if(win->windowType == 5) {
+    HandlePaintMouseDown(win, &win->paintData, x, y);
+}
             
             RedrawEverything();
             return;
@@ -1162,6 +1200,10 @@ void HandleMouseRelease() {
             windows[i].dragging = 0;
             anyDragging = 1;
         }
+        // Handle paint mouse up
+        if(windows[i].windowType == 5 && windows[i].paintData.isDrawing) {
+            HandlePaintMouseUp(&windows[i], &windows[i].paintData, mouseX, mouseY);
+        }
     }
     if(anyDragging) {
         RedrawEverything();
@@ -1169,6 +1211,12 @@ void HandleMouseRelease() {
 }
 
 void HandleMouseMove(int x, int y) {
+    for(int i = 0; i < windowCount; i++) {
+        if(windows[i].windowType == 5 && windows[i].paintData.isDrawing) {
+            HandlePaintMouseMove(&windows[i], &windows[i].paintData, x, y);
+        }
+    }
+    
     for(int i = 0; i < windowCount; i++) {
         Window* win = &windows[i];
         if(win->dragging) {
@@ -1181,6 +1229,7 @@ void HandleMouseMove(int x, int y) {
             UpdateDraggingWindow(win);
             return;
         }
+    
     }
 }
 
@@ -1206,6 +1255,11 @@ void HandleKeyPress(unsigned char key) {
     
    if(win->windowType == 4) {
         HandleTetrisKeyPress(win, &win->tetrisGame, key);
+        return;
+    }
+
+    if(win->windowType == 5) {
+        HandlePaintKeyPress(win, &win->paintData, key);
         return;
     }
 
@@ -1470,6 +1524,7 @@ void KernelMain(Framebuffer* framebuffer) {
     CreateWindow(150, 150, 700, 500, "Terminal", COLOR_TITLEBAR_BLUE, 1);
     CreateWindow(200, 200, 450, 300, "About RGOS", COLOR_TITLEBAR_RED, 0);
     CreateTetrisWindow(200, 200, 400, 350, "Tetris v1.0.3", COLOR_TITLEBAR_BLUE);
+    CreatePaintWindow(200, 200, 300, 350, "RSPaint v1.0", COLOR_TITLEBAR_GREEN);
     windows[0].isFocused = 1;
     focusedWindow = 0;
     

@@ -110,28 +110,28 @@ static Window windows[16];
 static int windowCount = 0;
 static int focusedWindow = -1;
 
-// Mouse state
+//Mouse state
 static int mouseX = 400;
 static int mouseY = 300;
 static int oldMouseX = 400;
 static int oldMouseY = 300;
 static int mouseButtons = 0;
 
-// Keyboard state
+//Keyboard State(Broken/Needs Fix)
 static int ctrlPressed = 0;
 static int shiftPressed = 0;
 
-// Back buffer for cursor
+//Back buffer for cursor
 static uint32_t cursorBackBuffer[20 * 20];
 static int cursorBackBufferValid = 0;
 
-// FAT12 state
+//FAT12 state
 static uint8_t* diskImage = NULL;
 static FAT12_BPB bpb;
 static uint16_t* fatTable = NULL;
 static uint8_t* rootDir = NULL;
 
-// Colors
+//Color Definitions
 #define COLOR_DESKTOP_BG    0x003366
 #define COLOR_TASKBAR       0x1A1A1A
 #define COLOR_WINDOW_BG     0xF0F0F0
@@ -146,7 +146,6 @@ static uint8_t* rootDir = NULL;
 #define COLOR_CURSOR_NORMAL 0x00FF00
 #define COLOR_CURSOR_CLICK  0xFF0000
 
-// Port I/O
 static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
     __asm__ volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
@@ -235,7 +234,6 @@ int Random(int max) {
     return randSeed % max;
 }
 
-// Graphics functions
 void DrawPixel(uint32_t x, uint32_t y, uint32_t color) {
     if(x < fb->width && y < fb->height) {
         fb->base[y * fb->pixelsPerScanLine + x] = color;
@@ -679,7 +677,7 @@ void DrawFileBrowserContent(Window* win) {
     }
 }
 
-// Terminal functions
+// Terminal stuff
 void TerminalAddLine(Window* win, const char* text) {
     if(win->windowType != 1) return;
     
@@ -765,7 +763,7 @@ void DrawTerminalContent(Window* win) {
     DrawRect(cursorX, lineY, 8, 10, COLOR_TERMINAL_TEXT);
 }
 
-// Text Editor functions
+// Text Editor stuff
 void DrawTextEditorContent(Window* win) {
     if(win->windowType != 3 || !win->visible) return;
     
@@ -775,22 +773,18 @@ void DrawTextEditorContent(Window* win) {
     int contentWidth = win->width - 16;
     int contentHeight = win->height - 66;
     
-    // Draw white background for text area
     DrawRect(contentX - 4, contentY - 4, contentWidth + 8, contentHeight + 8, COLOR_WHITE);
     
-    // Draw filename bar at the top
     DrawRect(contentX - 4, contentY - 4, contentWidth + 8, 20, 0xD0D0D0);
     
     if(editor->editingFilename) {
-        // Editing filename mode
         DrawText(contentX, contentY, "Filename: ", COLOR_BLACK);
         
-        // Safely draw filename
+        // Safely draw filename (Caused fatal error previously)
         int fnLen = strlen(editor->filename);
         if(fnLen > 0 && fnLen < 64) {
             DrawText(contentX + 10 * 8, contentY, editor->filename, COLOR_BLACK);
             
-            // Draw cursor under filename - bound check
             if(editor->filenamePos >= 0 && editor->filenamePos <= fnLen) {
                 int cursorX = contentX + 10 * 8 + editor->filenamePos * 8;
                 if(cursorX < contentX + contentWidth - 8) {
@@ -816,12 +810,10 @@ void DrawTextEditorContent(Window* win) {
         DrawText(contentX + 400, contentY, "F3: Rename", 0x0078D7);
     }
     
-    // Start drawing text content below the filename bar
     int lineY = contentY + 24;
     int lineNum = 0;
     int charX = 0;
     
-    // Draw each character
     for(int i = 0; i < editor->contentLength && lineY < contentY + contentHeight - 12; i++) {
         char c = editor->content[i];
         
@@ -830,11 +822,10 @@ void DrawTextEditorContent(Window* win) {
             lineY += 12;
             charX = 0;
         } else if(c >= 32 && c <= 126) {
-            if(charX < 85) {  // Limit characters per line
+            if(charX < 85) {
                 DrawChar(contentX + charX * 8, lineY, c, COLOR_BLACK);
                 charX++;
             } else {
-                // Wrap to next line
                 lineNum++;
                 lineY += 12;
                 charX = 0;
@@ -844,7 +835,6 @@ void DrawTextEditorContent(Window* win) {
         }
     }
     
-    // Draw status bar at the bottom
     int statusY = win->y + win->height - 24;
     DrawRect(contentX - 4, statusY, contentWidth + 8, 20, 0xE0E0E0);
     if(editor->editingFilename) {
@@ -1044,7 +1034,7 @@ void CreateTetrisWindow() {
     win->dragging = 0;
     win->lastDrawX = win->x;
     win->lastDrawY = win->y;
-    win->windowType = 4;  // Tetris window type
+    win->windowType = 4;
     win->isFocused = 0;
     TetrisInit(&win->tetrisGame);
     windowCount++;
@@ -1055,8 +1045,8 @@ void CreatePaintWindow() {
     Window* win = &windows[windowCount];
     win->x = 100;
     win->y = 80;
-    win->width = 430;  // Canvas + padding
-    win->height = 500; // Canvas + toolbar + palette
+    win->width = 430;
+    win->height = 500;
     strcpy(win->title, "Paint");
     win->titleBarColor = COLOR_TITLEBAR_GREEN;
     win->backgroundColor = 0xCCCCCC;
@@ -1064,7 +1054,7 @@ void CreatePaintWindow() {
     win->dragging = 0;
     win->lastDrawX = win->x;
     win->lastDrawY = win->y;
-    win->windowType = 5;  // Paint window type
+    win->windowType = 5;
     win->isFocused = 0;
     PaintInit(&win->paintData);
     windowCount++;
@@ -1332,15 +1322,13 @@ void HandleKeyPress(unsigned char key) {
         TextEditorData* editor = &win->editorData;
         
         if(editor->editingFilename) {
-            // Filename editing mode
             if(key == '\n') {
-                // Finish editing filename
                 editor->editingFilename = 0;
-                editor->filename[63] = '\0';  // Ensure null termination
+                editor->filename[63] = '\0';
                 DrawWindow(win);
             }
             else if(key == '\b') {
-                // Simple backspace - just remove last character
+                //Backspace(Did not work previously, very finnicky)
                 if(editor->filenamePos > 0) {
                     editor->filenamePos--;
                     editor->filename[editor->filenamePos] = '\0';
@@ -1348,7 +1336,6 @@ void HandleKeyPress(unsigned char key) {
                 }
             }
             else if(key >= 32 && key <= 126) {
-                // Simple append - just add to end
                 if(editor->filenamePos < 60) {
                     editor->filename[editor->filenamePos] = key;
                     editor->filenamePos++;
@@ -1357,7 +1344,6 @@ void HandleKeyPress(unsigned char key) {
                 }
             }
         } else {
-            // F2 key to save
             if(key == 1) {
                 CreateNewFile(editor->filename, editor->content, editor->contentLength);
                 editor->modified = 0;
@@ -1370,13 +1356,12 @@ void HandleKeyPress(unsigned char key) {
                 
                 DrawWindow(win);
             }
-            // F3 key to rename
             else if(key == 2) {
                 editor->editingFilename = 1;
                 editor->filenamePos = strlen(editor->filename);
                 DrawWindow(win);
             }
-            else if(key == 27) {  // Esc to exit
+            else if(key == 27) {
                 win->visible = 0;
                 RedrawEverything();
             }
@@ -1469,16 +1454,13 @@ void PollKeyboard() {
     
     unsigned char scancode = inb(0x60);
     
-    // Check for key release
     if(scancode & 0x80) {
         scancode &= 0x7F;
-        // Handle ctrl/shift release
-        if(scancode == 29) ctrlPressed = 0;  // Ctrl release
-        if(scancode == 42 || scancode == 54) shiftPressed = 0;  // Shift release
+        if(scancode == 29) ctrlPressed = 0;
+        if(scancode == 42 || scancode == 54) shiftPressed = 0;
         return;
     }
     
-    // Handle ctrl/shift press
     if(scancode == 29) {
         ctrlPressed = 1;
         return;
@@ -1488,19 +1470,16 @@ void PollKeyboard() {
         return;
     }
     
-    // F2 key for save
     if(scancode == 60) {
-        HandleKeyPress(1);  // Special code for F2
+        HandleKeyPress(1);
         return;
     }
     
-    // F3 key for rename
     if(scancode == 61) {
-        HandleKeyPress(2);  // Special code for F3
+        HandleKeyPress(2);
         return;
     }
     
-    // Escape key
     if(scancode == 1) {
         HandleKeyPress(27);
         return;

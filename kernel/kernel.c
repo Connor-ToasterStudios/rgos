@@ -382,6 +382,50 @@ void DrawText(uint32_t x, uint32_t y, const char* text, uint32_t color) {
     }
 }
 
+// Fake loading bar shown at boot. Duration in milliseconds (approximate).
+void ShowLoadingBar(int durationMs) {
+    int steps = 100;
+    int barW = fb->width / 2;
+    int barH = 20;
+    int barX = (fb->width - barW) / 2;
+    int barY = (fb->height - barH) / 2;
+
+    // Background
+    DrawRect(0, 0, fb->width, fb->height, COLOR_DESKTOP_BG);
+
+    // Draw border and empty bar
+    DrawRect(barX - 2, barY - 2, barW + 4, barH + 4, COLOR_BORDER);
+    DrawRect(barX, barY, barW, barH, COLOR_WHITE);
+
+    for(int s = 0; s <= steps; s++) {
+        int filled = (s * barW) / steps;
+
+        // Fill portion
+        DrawRect(barX, barY, filled, barH, COLOR_TITLEBAR_BLUE);
+
+        // Percentage text
+        char perc[8];
+        IntToStr((s * 100) / steps, perc);
+        strcat(perc, "%");
+
+        // Clear area for text (simple) then draw
+        DrawRect(barX + (barW/2) - 40, barY + barH + 8, 80, 12, COLOR_DESKTOP_BG);
+        DrawText(barX + (barW/2) - 40, barY + barH + 8, "Loading...", COLOR_WHITE);
+        DrawText(barX + (barW/2) - 12, barY + barH + 8, perc, COLOR_WHITE);
+
+        // Rough busy-wait to approximate requested duration
+        // Split total duration across steps
+        int approxDelayLoops = (durationMs / (steps + 1)) * 30;
+        if(approxDelayLoops < 1) approxDelayLoops = 1;
+        for(volatile int d = 0; d < approxDelayLoops; d++) {
+            for(volatile int z = 0; z < 50; z++);
+        }
+    }
+
+    // Small pause at end to show 100%
+    for(volatile int d = 0; d < 200000; d++);
+}
+
 // FAT12 functions
 void InitFAT12() {
     diskImage = (uint8_t*)0x100000;
@@ -1493,7 +1537,11 @@ void PollKeyboard() {
 
 void KernelMain(Framebuffer* framebuffer) {
     fb = framebuffer;
-    
+    // Show fake loading bar on boot (5-7 seconds)
+    SetRandomSeed((uint32_t)fb->width * (uint32_t)fb->height + fb->pixelsPerScanLine);
+    int loadDur = 5000 + Random(2000); // 5000..6999 ms approximate
+    ShowLoadingBar(loadDur);
+
     InitFAT12();
     InitMouse();
     

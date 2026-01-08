@@ -435,7 +435,7 @@ void InitFAT12() {
     bpbPtr->jump[1] = 0x3C;
     bpbPtr->jump[2] = 0x90;
     
-    for(int i = 0; i < 8; i++) bpbPtr->oem[i] = "RGOS2.0.3"[i];
+    for(int i = 0; i < 8; i++) bpbPtr->oem[i] = "RGOS2.1.0"[i];
     
     bpbPtr->bytesPerSector = 512;
     bpbPtr->sectorsPerCluster = 1;
@@ -762,11 +762,11 @@ void TerminalProcessCommand(Window* win, const char* cmd) {
         TerminalAddLine(win, cmd + 5);
     }
     else if(strcmp(cmd, "about") == 0) {
-        TerminalAddLine(win, "RGOS v2.0.3 - Custom UEFI OS");
+        TerminalAddLine(win, "RGOS v2.1.0 - UEFI OS Developed from scratch by Connor Anderson");
         TerminalAddLine(win, "With FAT12 File Browser");
     }
     else if(strcmp(cmd, "date") == 0) {
-        TerminalAddLine(win, "Mon Oct 7 12:34:56 2024");
+        TerminalAddLine(win, "Mon Oct 7 12:34:56 2024 (Incorrect Date For Now)");
     }
     else if(strcmp(cmd, "ls") == 0) {
         TerminalAddLine(win, "DOCUMENTS/  PICTURES/  README.TXT");
@@ -991,7 +991,7 @@ void DrawTaskbar() {
     DrawRect(8, taskbarY + 8, 120, 32, COLOR_TITLEBAR_BLUE);
     DrawText(20, taskbarY + 16, "Start", COLOR_WHITE);
     DrawRect(fb->width - 150, taskbarY + 8, 140, 32, 0x2D2D2D);
-    DrawText(fb->width - 135, taskbarY + 16, "RGOS v0.2.3", COLOR_WHITE);
+    DrawText(fb->width - 135, taskbarY + 16, "RGOS v2.1.0", COLOR_WHITE);
 }
 
 void RedrawEverything() {
@@ -1372,7 +1372,7 @@ void HandleKeyPress(unsigned char key) {
                 DrawWindow(win);
             }
             else if(key == '\b') {
-                //Backspace(Did not work previously, very finnicky)
+                //Backspace (Did not work previously, very finnicky, needs proper fix)
                 if(editor->filenamePos > 0) {
                     editor->filenamePos--;
                     editor->filename[editor->filenamePos] = '\0';
@@ -1539,7 +1539,7 @@ void KernelMain(Framebuffer* framebuffer) {
     fb = framebuffer;
     // Show fake loading bar on boot (5-7 seconds)
     SetRandomSeed((uint32_t)fb->width * (uint32_t)fb->height + fb->pixelsPerScanLine);
-    int loadDur = 5000 + Random(2000); // 5000..6999 ms approximate
+    int loadDur = 20000 + Random(2000); // Time on srceen 
     ShowLoadingBar(loadDur);
 
     InitFAT12();
@@ -1550,8 +1550,8 @@ void KernelMain(Framebuffer* framebuffer) {
     CreateWindow(100, 100, 700, 500, "File Browser", COLOR_TITLEBAR_GREEN, 2);
     CreateWindow(150, 150, 700, 500, "Terminal", COLOR_TITLEBAR_BLUE, 1);
     CreateWindow(200, 200, 450, 300, "About RGOS", COLOR_TITLEBAR_RED, 0);
-    CreateTetrisWindow(200, 200, 400, 350, "Tetris v1.0.3", COLOR_TITLEBAR_BLUE);
-    CreatePaintWindow(200, 200, 300, 350, "RSPaint v1.0", COLOR_TITLEBAR_GREEN);
+    CreateTetrisWindow(200, 200, 400, 350, "Tetris", COLOR_TITLEBAR_BLUE);
+    CreatePaintWindow(200, 200, 300, 350, "RSPaint v1.1", COLOR_TITLEBAR_GREEN);
     windows[0].isFocused = 1;
     focusedWindow = 0;
     

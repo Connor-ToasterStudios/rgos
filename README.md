@@ -1,9 +1,9 @@
 # rgos
-#-Description
+-Description
 RGOS is my passion project that I have been developing over the past couple of years. I originally was developing this for fun when I was a freshman in high school, but after a couple of months I realized that the AP Computer Science 
-#-Design
-#-Features
-#-Future Additions
+-Design
+-Features
+-Future Additions
 I am planning on developing 3d support in the near future
 #Needs Fix:
 Half the desktop apps refuse to open unless clicked on through another app.

@@ -17,10 +17,9 @@ Half the desktop apps refuse to open unless clicked on through another app.
 OS will crash if the fill tool is used to fill an incomplete shape or anywhere on a blank canvas.
 Graphics drivers are very broken, and I need to develop device-specific drivers in the future.
 
-# REMEMBER
+# setup
 
-I constantly forget the dependencies required for this project. Dependencies are listed here:
+- To Install Dependencies
 
-- gnu-efi
-
-- add rest later...
+chmod +x setup.sh
+./setup.sh
